@@ -80,15 +80,22 @@ async function callAI(promptText){
 const API_KEY = await getApiKey();
 
 const fullPrompt = `
-Você é um analista antifraude de cartão de crédito.
+Você é um especialista antifraude bancário.
 
-Classifique a transação como:
-- fraude
-- suspeita
-- legitima
+IMPORTANTE:
+O SCORE é o RISCO DE FRAUDE (não é confiança).
+
+Regras obrigatórias:
+- legitima → score entre 0 e 30
+- suspeita → score entre 31 e 60
+- fraude → score entre 61 e 100
 
 Responda SOMENTE com JSON válido:
-{ "status":"fraude|suspeita|legitima","score":0-100,"motivo":"curto" }
+{
+ "status":"fraude|suspeita|legitima",
+ "score": numero,
+ "motivo":"curto"
+}
 
 Transação:
 ${promptText}
