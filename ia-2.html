@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Detector de Fraude com IA</title>
+
+<style>
+body { font-family: Arial; background:#0f172a; color:#e2e8f0; padding:20px }
+button { padding:10px 16px; margin:5px; border:none; border-radius:6px; cursor:pointer }
+.primary { background:#2563eb; color:white }
+.secondary { background:#334155; color:white }
+table { border-collapse:collapse; width:100%; margin-top:20px }
+td, th { border:1px solid #334155; padding:8px }
+.progress { height:8px; background:#334155; margin-top:10px; border-radius:4px }
+.bar { height:8px; background:#22c55e; width:0%; border-radius:4px }
+</style>
+</head>
+
+<body>
+
+<h2>💳 Detector de Fraude com GROQ + Llama3</h2>
+
+<button class="secondary" onclick="loadSample()">Usar dados de exemplo</button>
+<button class="primary" onclick="analyzeAll()">Analisar com IA</button>
+
+<div class="progress"><div class="bar" id="bar"></div></div>
+
+<table id="table">
+<thead>
+<tr>
+<th>ID</th><th>Data</th><th>Valor</th><th>Loja</th>
+<th>Status</th><th>Score</th><th>Motivo</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+
+<script>
+let GROQ_API_KEY = null;
+
+function loadSample(){
+const rows=[
+["TXN001","2024-01-15","85.50","Supermercado Pao de Acucar"],
+["TXN002","2024-01-15","4850.00","Electronics Store Moscow"],
+["TXN003","2024-01-15","32.00","Farmacia Drogasil"],
+["TXN004","2024-01-16","1200.00","Apple Store"],
+["TXN005","2024-01-16","9999.99","Loja Online XYZ"],
+["TXN006","2024-01-16","45.00","Posto Ipiranga"],
+["TXN007","2024-01-16","780.00","Hotel Marriott"],
+["TXN008","2024-01-17","12.00","iFood"],
+["TXN009","2024-01-17","3200.00","Joalheria Diamante Negro"],
+["TXN010","2024-01-17","55.00","Cinema Cinemark"],
+["TXN011","2024-01-17","8750.00","Wire Transfer Lagos"],
+["TXN012","2024-01-18","120.00","Restaurante Outback"],
+["TXN013","2024-01-18","2300.00","Viagem Latam"],
+["TXN014","2024-01-18","19.90","Netflix"],
+["TXN015","2024-01-18","5500.00","Loja de Celulares"]
+];
+
+const tbody=document.querySelector("#table tbody");
+tbody.innerHTML="";
+rows.forEach(r=>{
+tbody.innerHTML+=`<tr>
+<td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td>
+<td>-</td><td>-</td><td>-</td></tr>`;
+});
+}
+
+async function getApiKey(){
+if(GROQ_API_KEY) return GROQ_API_KEY;
+
+const key = prompt("Cole sua GROQ API Key:");
+if(!key) throw new Error("API key não fornecida");
+
+GROQ_API_KEY = key.trim();
+return GROQ_API_KEY;
+}
+
+async function callAI(promptText){
+const API_KEY = await getApiKey();
+
+const fullPrompt = `
+Você é um analista antifraude de cartão de crédito.
+
+Classifique a transação como:
+- fraude
+- suspeita
+- legitima
+
+Responda SOMENTE com JSON válido:
+{ "status":"fraude|suspeita|legitima","score":0-100,"motivo":"curto" }
+
+Transação:
+${promptText}
+`;
+
+const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+method: "POST",
+headers: {
+"Content-Type": "application/json",
+"Authorization": "Bearer " + API_KEY
+},
+body: JSON.stringify({
+model: "llama-3.3-70b-versatile",
+messages: [{ role: "user", content: fullPrompt }],
+temperature: 0.1,
+max_tokens: 200,
+response_format: { type: "json_object" }   // ⭐ JSON MODE FIX
+})
+});
+
+if(!resp.ok){
+const err = await resp.text();
+throw new Error(err);
+}
+
+const data = await resp.json();
+return JSON.parse(data.choices[0].message.content);
+}
+
+async function analyzeAll(){
+const rows=document.querySelectorAll("#table tbody tr");
+const bar=document.getElementById("bar");
+
+for(let i=0;i<rows.length;i++){
+const r=rows[i].children;
+
+const prompt = `
+valor ${r[2].innerText}
+loja ${r[3].innerText}
+`;
+
+try{
+const res=await callAI(prompt);
+r[4].innerText=res.status;
+r[5].innerText=res.score;
+r[6].innerText=res.motivo;
+}catch(e){
+r[4].innerText="erro";
+r[6].innerText=e.message.slice(0,80);
+}
+
+bar.style.width=((i+1)/rows.length*100)+"%";
+}
+}
+</script>
+
+</body>
+</html>
